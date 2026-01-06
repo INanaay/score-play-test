@@ -48,9 +48,21 @@
 
 ### API Reference
 The API definition is available in the **OpenAPI 3.0** format.
+-   **File**: - [OpenAPI specification](docs/openapi.yaml)
+-   You can view this file using any Swagger/OpenAPI viewer (e.g., Swagger Editor, Postman).
 
-### OpenAPI Spec
-- [OpenAPI specification](docs/openapi.yaml)
+#### Quick Endpoint List:
+-   `GET /health`: Health check.
+-   `POST /tag`: Create multiple tags.
+-   `GET /tag`: List tags with pagination.
+-   `POST /file/upload`: Initiate simple upload (get presigned URL).
+-   `POST /file/upload/multipart`: Initiate a multipart session.
+-   `POST /file/upload/multipart/{id}/parts`: Get presigned URLs for specific parts.
+-   `GET /file/upload/multipart/{id}/parts`: List parts already uploaded.
+-   `POST /file/upload/multipart/{id}/complete`: Finalize multipart upload.
+-   `GET /file/{id}`: Get file info and a presigned download URL.
+
+
 
 ### Testing
 The project includes unit tests and integration tests.
