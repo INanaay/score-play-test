@@ -210,8 +210,11 @@ We implement the **Unit of Work** pattern in the Postgres adapter.
 -   **Why?** Chi is lightweight, idiomatic, and 100% compatible with the standard `net/http` interface.
 -   **Versioning**: We use Chi's mounting capability (`r.Mount("/v1", v1Router)`) to cleanly separate API versions. This allows us to introduce v2 without breaking existing v1 clients.
 
-#### 📝 Structured Logging (slog)
--   **Why?** We use Go 1.21+'s built-in `log/slog`. 
+
+#### 🔄 Database Migrations
+-   **Tooling**: We use `golang-migrate` to handle database schema changes.
+-   **Versioning**: All changes are versioned in `db/migrations` (e.g., `000001_init.up.sql`). This guarantees that the database schema is always in a known state across all environments.
+-   **Automation**: Migrations are idempotent and can be applied automatically via `make migrate-up`.
 
 ### 4. Deep Dive: "Why this approach?"
 
