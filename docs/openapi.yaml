@@ -1,0 +1,436 @@
+openapi: 3.0.0
+info:
+  title: Score-Play API
+  version: 1.0.0
+  description: API for uploading and managing files with tagging support.
+
+
+paths:
+  /tag:
+    post:
+      summary: Create Tags
+      description: Create multiple tags at once.
+      operationId: createTags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tags
+              properties:
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of tags to create.
+                  example: ["football", "match", "2024"]
+      responses:
+        '201':
+          description: Tags created successfully.
+        '400':
+          description: Invalid request (missing tags, empty tags, or invalid characters).
+        '409':
+          description: All tags already exist.
+        '503':
+          description: Internal server error.
+
+    get:
+      summary: List Tags
+      description: List existing tags with pagination.
+      operationId: listTags
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+          required: false
+          description: Maximum number of tags to return.
+          example: 10
+        - in: query
+          name: marker
+          schema:
+            type: string
+          required: false
+          description: Pagination marker for the next page.
+      responses:
+        '200':
+          description: List of tags.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                  nextMarker:
+                    type: string
+                    description: Marker for the next page (null if no more pages).
+        '400':
+          description: Invalid parameters (limit <= 0).
+        '503':
+          description: Internal server error.
+
+  /file/upload:
+    post:
+      summary: Request Simple File Upload
+      description: Request a presigned URL for a single PUT upload. Please provide response headers in your presigned URL call.
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - content_type
+                - size_bytes
+                - checksum_sha256
+                - tags
+              properties:
+                filename:
+                  type: string
+                  example: "video.mp4"
+                content_type:
+                  type: string
+                  example: "video/mp4"
+                size_bytes:
+                  type: integer
+                  format: int64
+                  example: 10485760
+                checksum_sha256:
+                  type: string
+                  description: SHA256 checksum of the file content.
+                  example: "base64_encoded_checksum"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of tags to associate with the file.
+      responses:
+        '201':
+          description: Upload request accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_id:
+                    type: string
+                    format: uuid
+                  presigned_url:
+                    type: string
+                    description: URL to upload the file to.
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: Headers to include in the PUT request.
+                  expires_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid request (missing params, invalid file type, file too big, tag not found).
+        '503':
+          description: Internal server error.
+
+  /file/upload/multipart:
+    post:
+      summary: Request Multipart Upload Session
+      description: Initialize a multipart upload session for larger files.
+      operationId: uploadFileMultipart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - content_type
+                - size_bytes
+                - checksum_sha256
+                - tags
+              properties:
+                filename:
+                  type: string
+                content_type:
+                  type: string
+                size_bytes:
+                  type: integer
+                  format: int64
+                checksum_sha256:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Multipart session initialized.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  part_size:
+                    type: integer
+                    description: Recommended size for each part in bytes.
+        '400':
+          description: Invalid request.
+        '500':
+          description: Internal server error (upload session nil).
+        '503':
+          description: Service unavailable.
+
+  /file/upload/multipart/{sessionID}/parts:
+    post:
+      summary: Get Presigned URLs for Parts
+      description: Request presigned URLs for specific parts of a multipart upload. Please provide response headers in your presigned URL call for each part.
+      operationId: retrievePresignedParts
+      parameters:
+        - in: path
+          name: sessionID
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: Upload session ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - parts
+              properties:
+                parts:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - part_number
+                      - checksum
+                      - content_length
+                    properties:
+                      part_number:
+                        type: integer
+                      checksum:
+                        type: string
+                        description: SHA256 checksum of the part.
+                      content_length:
+                        type: integer
+                        format: int64
+      responses:
+        '201':
+          description: Presigned URLs generated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  presigned_parts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        part_number:
+                          type: integer
+                        presigned_url:
+                          type: string
+                        expires_at:
+                          type: string
+                          format: date-time
+                        headers:
+                          type: object
+                          additionalProperties:
+                            type: string
+        '400':
+          description: Invalid request (bad session ID format, invalid part data).
+        '403':
+          description: Session not found (forbidden).
+        '404':
+          description: File metadata not found.
+        '500':
+          description: Internal server error.
+
+    get:
+      summary: List Uploaded Parts
+      description: List parts that have already been uploaded for a session.
+      operationId: getParts
+      parameters:
+        - in: path
+          name: sessionID
+          schema:
+            type: string
+            format: uuid
+          required: true
+        - in: query
+          name: nb_parts
+          schema:
+            type: integer
+          required: true
+          description: Number of parts to list.
+        - in: query
+          name: marker
+          schema:
+            type: integer
+          required: false
+          description: Part number marker for pagination.
+      responses:
+        '200':
+          description: List of uploaded parts.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        part_number:
+                          type: integer
+                        etag:
+                          type: string
+                  parts_marker:
+                    type: integer
+        '400':
+          description: Invalid parameters.
+        '403':
+          description: Session not found.
+        '404':
+          description: File metadata not found.
+        '500':
+          description: Internal server error.
+
+  /file/upload/multipart/{sessionID}/complete:
+    post:
+      summary: Complete Multipart Upload
+      description: Finalize the multipart upload after all parts are uploaded.
+      operationId: completeMultipart
+      parameters:
+        - in: path
+          name: sessionID
+          schema:
+            type: string
+            format: uuid
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - parts
+              properties:
+                parts:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - part_number
+                      - etag
+                      - checksum
+                    properties:
+                      part_number:
+                        type: integer
+                      etag:
+                        type: string
+                      checksum:
+                        type: string
+      responses:
+        '201':
+          description: Upload completed successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Invalid request or part mismatch (ETag/count/duplicate).
+        '403':
+          description: Session not found.
+        '404':
+          description: File metadata not found.
+        '503':
+          description: Service unavailable.
+
+  /file/{fileID}/:
+    get:
+      summary: Get File Info
+      description: Get file details and a download URL.
+      operationId: getFile
+      parameters:
+        - in: path
+          name: fileID
+          schema:
+            type: string
+            format: uuid
+          required: true
+      responses:
+        '200':
+          description: File information retrieved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  url:
+                    type: string
+                    description: Presigned download URL.
+                  expires_at:
+                    type: string
+                    format: date-time
+                  tags:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid File ID format.
+        '409':
+          description: File not ready or upload failed.
+        '503':
+          description: Service unavailable.
+
+  /health:
+    get:
+      summary: Health Check
+      description: Check API health status.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
