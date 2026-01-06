@@ -74,6 +74,10 @@ make test
 ### Makefile
 A makefile is provided with multiple commands. Feel free to check it out !
 
+```bash
+make help
+```
+
 ### Minio Admin Panel
 Minio provides an admin panel. By default, its url is : http://127.0.0.1:9001/browser/
 

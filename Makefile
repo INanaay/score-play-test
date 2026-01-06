@@ -2,7 +2,8 @@ SERVICE := fileuploadapi
 ENV_FILE := .env
 COMPOSE_FILE := docker-compose.yml
 
-.PHONY: up restart down logs clean build-migrate migrate-down migrate-up db-connect logs-api logs-worker logs-nats logs-minio test
+.PHONY: up up-api up-worker restart down logs clean build-migrate migrate-down migrate-up db-connect logs-api logs-worker logs-nats logs-minio test help
+
 
 include .env
 
@@ -72,3 +73,22 @@ restart: down up
 test:
 	@echo "🧪 Running tests..."
 	go test ./... -v
+
+help:
+	@echo "🛠️  Available Makefile commands:"
+	@echo ""
+	@echo "up             - 🚀 Start all containers"
+	@echo "up-api         - 🚀 Start API container only"
+	@echo "up-worker      - 🚀 Start worker container only"
+	@echo "down           - 🛑 Stop all containers"
+	@echo "restart        - ♻️  Restart all containers"
+	@echo "logs           - 📖 Show logs for all containers"
+	@echo "logs-api       - 📖 Show API logs"
+	@echo "logs-worker    - 📖 Show worker logs"
+	@echo "logs-nats      - 📖 Show NATS logs"
+	@echo "logs-minio     - 📖 Show MinIO logs"
+	@echo "clean          - 🧹 Remove containers and volumes"
+	@echo "migrate-up     - 🔼 Run database migrations up"
+	@echo "migrate-down   - 🔽 Rollback database migrations"
+	@echo "db-connect     - 📊 Connect to PostgreSQL container"
+	@echo "test           - 🧪 Run Go tests"
