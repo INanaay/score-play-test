@@ -185,9 +185,7 @@ We strictly follow the **Hexagonal Architecture** (also known as Clean Architect
 
 -   **Core (Domain)**: Located in `internal/core`. This contains the business logic and entities. It defines **Ports** (interfaces) for what it needs (e.g., `FileRepository`, `EventBroker`). It has **zero dependencies** on HTTP, SQL, or AWS libraries.
 -   **Adapters**: Located in `internal/adapters`. These implement the Ports.
-    -   *Primary Adapters* (Driving): `handlers/http/chi` (REST API).
-    -   *Secondary Adapters* (Driven): `repository/postgres` (Database), `storage/minio` (S3), `eventbroker/nats` (Messaging).
-
+    
 **Why?**
 -   **Isolation**: We can upgrade libraries or switch frameworks without touching business logic.
 -   **Testability**: We can write unit tests for the Core by simply mocking the interfaces (Ports). No need to spin up a real database or S3 bucket for logic tests.
@@ -209,7 +207,7 @@ We implement the **Unit of Work** pattern in the Postgres adapter.
 -   **Versioning**: We use Chi's mounting capability (`r.Mount("/v1", v1Router)`) to cleanly separate API versions. This allows us to introduce v2 without breaking existing v1 clients.
 
 #### 📝 Structured Logging (slog)
--   **Why?** We use Go 1.21+'s built-in `log/slog`. It produces structured JSON output, which is essential for modern observability tools (ELK, Datadog) to index and search logs.
+-   **Why?** We use Go 1.21+'s built-in `log/slog`. 
 
 ### 4. Deep Dive: "Why this approach?"
 
@@ -222,7 +220,7 @@ We chose **Multipart Uploads** for large files with **Presigned URLs** over stre
     -   With **Multipart**, the file is split into small chunks (e.g., 5MB). If a chunk fails, only that 5MB is retried. The upload can even be paused and resumed later.
 
 2.  **Scalability**:
-    -   Streaming large files through the Golang API server consumes significant memory and CPU (context switching) and blocks connections.
+    -   Streaming large files through the Golang API server consumes significant memory and CPU and blocks connections.
     -   By generating Presigned URLs, the client uploads *directly* to MinIO/S3. The API only handles tiny JSON requests (signaling), allowing a single small API instance to coordinate terabytes of uploads.
 
 3.  **Data Integrity (Checksums)**:
@@ -279,7 +277,7 @@ This architecture is designed to scale horizontally to handle **millions of file
     -   If load increases, we simply spin up more API containers. Since they don't hold the file data (S3 does), they are extremely lightweight.
 -   **Worker Scalability (Competing Consumers)**:
     -   The workers consume from a NATS Queue Group. This implements the **Competing Consumers** pattern.
-    -   If the processing backlog grows, we can auto-scale the number of Worker instances (e.g., using Kubernetes HPA based on NATS Lag). 100 workers can process 100 videos in parallel.
+    -   If the processing backlog grows, we can auto-scale the number of Worker instances. 100 workers can process 100 videos in parallel.
 -   **Performance Estimation**:
     -   The API only handles control signals (JSON). A single Go instance can easily handle **1,000+ req/sec**.
     -   Assuming 3 requests per upload (Init, Sign Parts, Complete), one API instance could coordinate ~300 uploads/sec, or **~25 million uploads per day**.
